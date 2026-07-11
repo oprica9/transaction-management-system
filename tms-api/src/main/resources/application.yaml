@@ -1,3 +1,7 @@
 spring:
   application:
     name: tms-api
+
+tms:
+  storage:
+    csv-path: /home/oprica/projects/personal/transaction-management-system/db.csv
