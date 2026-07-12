@@ -5,8 +5,12 @@ import com.oprica.tmsapi.exception.InvalidTransactionCsvException;
 import com.oprica.tmsapi.exception.TransactionRepositoryException;
 import com.oprica.tmsapi.model.Transaction;
 import com.oprica.tmsapi.model.TransactionStatus;
-import lombok.RequiredArgsConstructor;
-import org.apache.commons.csv.*;
+import org.apache.commons.csv.CSVException;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVPrinter;
+import org.apache.commons.csv.CSVRecord;
+import org.apache.commons.csv.DuplicateHeaderMode;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -31,13 +35,15 @@ import static com.oprica.tmsapi.csv.TransactionCsvColumn.AMOUNT;
 import static com.oprica.tmsapi.csv.TransactionCsvColumn.STATUS;
 import static com.oprica.tmsapi.csv.TransactionCsvColumn.TRANSACTION_DATE;
 
-@RequiredArgsConstructor
 public class CsvTransactionRepository implements TransactionRepository {
 
     /*
-     * Header validation is performed explicitly against TransactionCsvColumn.
-     * Commons CSV is allowed to parse duplicate or missing header names so that
-     * every header mismatch results in InvalidTransactionCsvException.
+     * Header validation is performed explicitly against
+     * TransactionCsvColumn.
+     *
+     * Commons CSV is allowed to parse duplicate or missing
+     * header names so that every header mismatch is converted
+     * into InvalidTransactionCsvException.
      */
     private static final CSVFormat READ_FORMAT =
             CSVFormat.RFC4180.builder()
@@ -51,19 +57,18 @@ public class CsvTransactionRepository implements TransactionRepository {
 
     private final Path path;
 
+    public CsvTransactionRepository(Path path) {
+        this.path = Objects.requireNonNull(path, "path").toAbsolutePath().normalize();
+        initializeFile();
+    }
+
+    public void validate() {
+        readTransactions();
+    }
+
     @Override
     public List<Transaction> findAll() {
-        try (BufferedReader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8);
-             CSVParser parser = READ_FORMAT.parse(reader)) {
-
-            validateHeaders(parser);
-            return parseTransactions(parser);
-
-        } catch (UncheckedIOException exception) {
-            throw mapReadException(exception.getCause());
-        } catch (IOException exception) {
-            throw mapReadException(exception);
-        }
+        return readTransactions();
     }
 
     @Override
@@ -74,27 +79,41 @@ public class CsvTransactionRepository implements TransactionRepository {
             appendTransaction(transaction);
             return transaction;
         } catch (IOException exception) {
-            throw new TransactionRepositoryException("Failed to save transaction to " + path, exception);
+            throw new TransactionRepositoryException(
+                    "Failed to save transaction to " + path,
+                    exception
+            );
+        }
+    }
+
+    private List<Transaction> readTransactions() {
+        try (BufferedReader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8);
+             CSVParser parser = READ_FORMAT.parse(reader)) {
+
+            validateHeaders(parser);
+
+            return parseTransactions(parser);
+
+        } catch (UncheckedIOException exception) {
+            throw mapReadException(exception.getCause());
+
+        } catch (IOException exception) {
+            throw mapReadException(exception);
         }
     }
 
     private void appendTransaction(Transaction transaction) throws IOException {
-        boolean newFile = Files.notExists(path) || Files.size(path) == 0;
-        boolean needsRecordSeparator = !newFile && !endsWithLineBreak(path);
+        boolean needsRecordSeparator = !endsWithLineBreak(path);
 
-        try (BufferedWriter writer = Files.newBufferedWriter(path,
+        try (BufferedWriter writer = Files.newBufferedWriter(
+                path,
                 StandardCharsets.UTF_8,
-                StandardOpenOption.CREATE,
                 StandardOpenOption.APPEND
         );
              CSVPrinter printer = new CSVPrinter(writer, WRITE_FORMAT)) {
 
             if (needsRecordSeparator) {
                 printer.println();
-            }
-
-            if (newFile) {
-                printer.printRecord(TransactionCsvColumn.headers());
             }
 
             printer.printRecord(
@@ -107,7 +126,7 @@ public class CsvTransactionRepository implements TransactionRepository {
         }
     }
 
-    private RuntimeException mapReadException(IOException exception) {
+    private TransactionRepositoryException mapReadException(IOException exception) {
         if (exception instanceof CSVException) {
             return new InvalidTransactionCsvException("Malformed transaction CSV", exception);
         }
@@ -135,7 +154,12 @@ public class CsvTransactionRepository implements TransactionRepository {
                     parseAmount(record),
                     parseStatus(record)
             );
+
         } catch (IllegalArgumentException exception) {
+            /*
+             * Domain validation errors such as an overlong account
+             * holder name are converted into CSV data errors.
+             */
             throw new InvalidTransactionCsvException("Record %d contains invalid transaction data: %s"
                     .formatted(record.getRecordNumber(), exception.getMessage()), exception);
         }
@@ -146,6 +170,7 @@ public class CsvTransactionRepository implements TransactionRepository {
 
         try {
             return LocalDate.parse(value);
+
         } catch (DateTimeParseException exception) {
             throw invalid(record, TRANSACTION_DATE, "Expected yyyy-MM-dd but found '%s'".formatted(value), exception);
         }
@@ -156,6 +181,7 @@ public class CsvTransactionRepository implements TransactionRepository {
 
         try {
             return new BigDecimal(value);
+
         } catch (NumberFormatException exception) {
             throw invalid(record, AMOUNT, "Expected a decimal number but found '%s'".formatted(value), exception);
         }
@@ -166,6 +192,7 @@ public class CsvTransactionRepository implements TransactionRepository {
 
         try {
             return TransactionStatus.fromValue(value);
+
         } catch (IllegalArgumentException exception) {
             throw invalid(record, STATUS, "Unsupported status '%s'".formatted(value), exception);
         }
@@ -207,6 +234,7 @@ public class CsvTransactionRepository implements TransactionRepository {
             }
 
             ByteBuffer buffer = ByteBuffer.allocate(1);
+
             channel.position(size - 1);
             channel.read(buffer);
             buffer.flip();
@@ -214,6 +242,45 @@ public class CsvTransactionRepository implements TransactionRepository {
             byte lastByte = buffer.get();
 
             return lastByte == '\n' || lastByte == '\r';
+        }
+    }
+
+    private void initializeFile() {
+        try {
+            Path parent = path.getParent();
+
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+
+            if (Files.notExists(path)) {
+                writeHeader(StandardOpenOption.CREATE_NEW);
+                return;
+            }
+
+            if (!Files.isRegularFile(path)) {
+                throw new TransactionRepositoryException("Transaction CSV path is not a regular file: " + path);
+            }
+
+            if (Files.size(path) == 0) {
+                writeHeader(StandardOpenOption.TRUNCATE_EXISTING);
+            }
+
+        } catch (IOException exception) {
+            throw new TransactionRepositoryException("Failed to initialize transaction CSV at " + path, exception);
+        }
+    }
+
+    private void writeHeader(StandardOpenOption... options) throws IOException {
+        try (BufferedWriter writer = Files.newBufferedWriter(
+                path,
+                StandardCharsets.UTF_8,
+                options
+        );
+             CSVPrinter printer =
+                     new CSVPrinter(writer, WRITE_FORMAT)) {
+
+            printer.printRecord(TransactionCsvColumn.headers());
         }
     }
 

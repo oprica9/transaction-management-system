@@ -1,5 +1,6 @@
 package com.oprica.tmsapi.model;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -9,6 +10,7 @@ import java.util.Arrays;
 @RequiredArgsConstructor
 @Getter
 public enum TransactionStatus {
+
     PENDING("Pending"),
     SETTLED("Settled"),
     FAILED("Failed");
@@ -20,6 +22,7 @@ public enum TransactionStatus {
         return value;
     }
 
+    @JsonCreator
     public static TransactionStatus fromValue(String value) {
         return Arrays.stream(values())
                 .filter(status -> status.value.equals(value))

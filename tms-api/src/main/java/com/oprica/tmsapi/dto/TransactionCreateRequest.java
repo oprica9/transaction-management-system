@@ -3,7 +3,6 @@ package com.oprica.tmsapi.dto;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Pattern;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -13,10 +12,6 @@ public record TransactionCreateRequest(
         LocalDate transactionDate,
 
         @NotBlank
-        @Pattern(
-                regexp = "\\d{4}-\\d{4}-\\d{4}",
-                message = "Account number must match ####-####-####"
-        )
         String accountNumber,
 
         @NotBlank
@@ -30,5 +25,4 @@ public record TransactionCreateRequest(
         )
         BigDecimal amount
 ) {
-
 }

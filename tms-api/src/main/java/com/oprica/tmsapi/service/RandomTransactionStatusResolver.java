@@ -18,7 +18,7 @@ public class RandomTransactionStatusResolver {
     }
 
     RandomTransactionStatusResolver(Random random) {
-        this.random = Objects.requireNonNull(random);
+        this.random = Objects.requireNonNull(random, "random");
     }
 
     public TransactionStatus resolve() {

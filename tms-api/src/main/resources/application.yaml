@@ -4,4 +4,4 @@ spring:
 
 tms:
   storage:
-    csv-path: /home/oprica/projects/personal/transaction-management-system/db.csv
+    csv-path: ${TMS_CSV_PATH}

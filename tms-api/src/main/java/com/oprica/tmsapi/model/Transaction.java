@@ -2,7 +2,6 @@ package com.oprica.tmsapi.model;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.regex.Pattern;
 
 public record Transaction(
         LocalDate transactionDate,
@@ -12,19 +11,13 @@ public record Transaction(
         TransactionStatus status
 ) {
 
-    private static final Pattern ACCOUNT_NUMBER_PATTERN = Pattern.compile("\\d{4}-\\d{4}-\\d{4}");
-
     public Transaction {
         requireNonNull(transactionDate, "transactionDate");
         requireNonNull(amount, "amount");
         requireNonNull(status, "status");
 
-        requireNonBlank(accountNumber, "accountNumber");
-        requireNonBlank(accountHolderName, "accountHolderName");
-
-        if (!ACCOUNT_NUMBER_PATTERN.matcher(accountNumber).matches()) {
-            throw new IllegalArgumentException("accountNumber must match ####-####-####");
-        }
+        accountNumber = normalizeRequired(accountNumber, "accountNumber");
+        accountHolderName = normalizeRequired(accountHolderName, "accountHolderName");
 
         if (amount.signum() <= 0) {
             throw new IllegalArgumentException("amount must be greater than zero");
@@ -37,9 +30,11 @@ public record Transaction(
         }
     }
 
-    private static void requireNonBlank(String value, String fieldName) {
+    private static String normalizeRequired(String value, String fieldName) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(fieldName + " must not be blank");
         }
+
+        return value.strip();
     }
 }

@@ -20,9 +20,9 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Stream;
 
+import static com.oprica.tmsapi.model.TransactionStatus.FAILED;
 import static com.oprica.tmsapi.model.TransactionStatus.PENDING;
 import static com.oprica.tmsapi.model.TransactionStatus.SETTLED;
-import static com.oprica.tmsapi.model.TransactionStatus.FAILED;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -45,7 +45,74 @@ class CsvTransactionRepositoryTest {
     Path tempDir;
 
     @Test
-    void findAll_whenCsvIsValid_returnsParsedTransactionsInFileOrder() throws IOException {
+    void constructor_whenFileAndParentDirectoriesDoNotExist_initializesCsv() throws IOException {
+        Path csvPath = tempDir
+                .resolve("nested")
+                .resolve("data")
+                .resolve("transactions.csv");
+
+        CsvTransactionRepository repository = new CsvTransactionRepository(csvPath);
+
+        assertThat(csvPath).isRegularFile();
+
+        assertThat(Files.readAllLines(
+                csvPath,
+                StandardCharsets.UTF_8
+        )).containsExactly(HEADER);
+
+        assertThat(repository.findAll()).isEmpty();
+    }
+
+    @Test
+    void constructor_whenFileIsEmpty_writesHeader() throws IOException {
+        Path csvPath = tempDir.resolve("transactions.csv");
+        Files.createFile(csvPath);
+
+        CsvTransactionRepository repository = new CsvTransactionRepository(csvPath);
+
+        assertThat(Files.readAllLines(
+                csvPath,
+                StandardCharsets.UTF_8
+        )).containsExactly(HEADER);
+
+        assertThat(repository.findAll()).isEmpty();
+    }
+
+    @Test
+    void constructor_whenFileExists_doesNotModifyIt() throws IOException {
+        String existingCsv = """
+                Transaction Date,Account Number,Account Holder Name,Amount,Status
+                2025-03-01,7289-3445-1121,Maria Johnson,150.00,Settled
+                """;
+
+        Path csvPath = tempDir.resolve("transactions.csv");
+
+        Files.writeString(
+                csvPath,
+                existingCsv,
+                StandardCharsets.UTF_8
+        );
+
+        new CsvTransactionRepository(csvPath);
+
+        assertThat(Files.readString(
+                csvPath,
+                StandardCharsets.UTF_8
+        )).isEqualTo(existingCsv);
+    }
+
+    @Test
+    void constructor_whenPathIsNull_throwsNullPointerException() {
+        assertThatThrownBy(
+                () -> new CsvTransactionRepository(null)
+        )
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("path");
+    }
+
+    @Test
+    void findAll_whenCsvIsValid_returnsParsedTransactionsInFileOrder()
+            throws IOException {
         TransactionRepository repository = repositoryWithCsv("""
                 Transaction Date,Account Number,Account Holder Name,Amount,Status
                 2025-03-01,7289-3445-1121,Maria Johnson,150.00,Settled
@@ -84,19 +151,7 @@ class CsvTransactionRepositoryTest {
     @Test
     void findAll_whenOnlyHeaderExists_returnsEmptyList() throws IOException {
         TransactionRepository repository = repositoryWithCsv(HEADER + "\n");
-
-        List<Transaction> transactions = repository.findAll();
-
-        assertThat(transactions).isEmpty();
-    }
-
-    @Test
-    void findAll_whenFileIsEmpty_throwsInvalidTransactionCsvException() throws IOException {
-        TransactionRepository repository = repositoryWithCsv("");
-
-        assertThatThrownBy(repository::findAll)
-                .isInstanceOf(InvalidTransactionCsvException.class)
-                .hasMessageContaining("Invalid CSV headers");
+        assertThat(repository.findAll()).isEmpty();
     }
 
     @Test
@@ -104,9 +159,7 @@ class CsvTransactionRepositoryTest {
         TransactionRepository repository =
                 repositoryWithCsv(csvWithRow("2025-03-01,7289-3445-1121,\"Johnson, Maria\",150.00,Settled"));
 
-        List<Transaction> transactions = repository.findAll();
-
-        assertThat(transactions)
+        assertThat(repository.findAll())
                 .containsExactly(
                         new Transaction(
                                 LocalDate.of(2025, 3, 1),
@@ -182,20 +235,6 @@ class CsvTransactionRepositoryTest {
     }
 
     @Test
-    void findAll_whenFileDoesNotExist_throwsTransactionRepositoryException() {
-        Path missingPath = tempDir.resolve("missing.csv");
-
-        TransactionRepository repository = new CsvTransactionRepository(missingPath);
-
-        assertThatThrownBy(repository::findAll)
-                .isInstanceOf(TransactionRepositoryException.class)
-                .hasMessageContaining(
-                        "Failed to read transactions from " + missingPath
-                )
-                .hasCauseInstanceOf(NoSuchFileException.class);
-    }
-
-    @Test
     void findAll_whenHeaderCsvSyntaxIsMalformed_wrapsParsingFailure() throws IOException {
         String malformedCsv = "Transaction Date,Account Number,\"Account Holder Name,Amount,Status";
 
@@ -221,67 +260,30 @@ class CsvTransactionRepositoryTest {
                 .hasCauseInstanceOf(CSVException.class);
     }
 
-    @Test
-    void save_whenTransactionIsValid_csvHasNewRow() throws IOException {
-        Transaction transaction = new Transaction(
-                LocalDate.of(2026, 12, 7),
-                "1234-5678-9101",
-                "Test Holder",
-                new BigDecimal("1000.0"),
-                PENDING
-        );
-
-        TransactionRepository repository = repositoryWithCsv(HEADER);
-
-        repository.save(transaction);
-
-        assertThat(repository.findAll())
-                .containsExactly(transaction);
-    }
-
-    @Test
-    void save_whenFileDoesNotExist_createsFileAndReturnsProvidedTransaction() throws IOException {
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("invalidExistingCsvFiles")
+    void validate_whenExistingCsvIsInvalid_throwsWithoutModifyingFile(String description, String existingCsv) throws IOException {
         Path csvPath = tempDir.resolve("transactions.csv");
-        TransactionRepository repository = new CsvTransactionRepository(csvPath);
 
-        Transaction saved = repository.save(TRANSACTION_TO_SAVE);
+        Files.writeString(csvPath, existingCsv, StandardCharsets.UTF_8);
 
-        assertThat(saved).isSameAs(TRANSACTION_TO_SAVE);
+        String originalContent = Files.readString(csvPath, StandardCharsets.UTF_8);
 
-        assertThat(Files.readAllLines(csvPath, StandardCharsets.UTF_8))
-                .containsExactly(
-                        HEADER,
-                        TRANSACTION_ROW
-                );
+        CsvTransactionRepository repository = new CsvTransactionRepository(csvPath);
 
-        assertThat(repository.findAll())
-                .containsExactly(TRANSACTION_TO_SAVE);
-    }
+        assertThatThrownBy(repository::validate)
+                .isInstanceOf(InvalidTransactionCsvException.class);
 
-    @Test
-    void save_whenFileIsEmpty_writesHeaderAndTransaction() throws IOException {
-        TransactionRepository repository = repositoryWithCsv("");
-
-        repository.save(TRANSACTION_TO_SAVE);
-
-        assertThat(repository.findAll())
-                .containsExactly(TRANSACTION_TO_SAVE);
-
-        assertThat(Files.readAllLines(
-                tempDir.resolve("transactions.csv"),
-                StandardCharsets.UTF_8
-        )).containsExactly(
-                HEADER,
-                TRANSACTION_ROW)
-        ;
+        assertThat(Files.readString(csvPath, StandardCharsets.UTF_8))
+                .isEqualTo(originalContent);
     }
 
     @Test
     void save_whenFileContainsOnlyHeader_appendsTransaction() throws IOException {
         TransactionRepository repository = repositoryWithCsv(HEADER + "\n");
 
-        repository.save(TRANSACTION_TO_SAVE);
-
+        Transaction saved = repository.save(TRANSACTION_TO_SAVE);
+        assertThat(saved).isSameAs(TRANSACTION_TO_SAVE);
         assertThat(repository.findAll())
                 .containsExactly(TRANSACTION_TO_SAVE);
     }
@@ -337,6 +339,7 @@ class CsvTransactionRepositoryTest {
     @Test
     void save_whenCalledMultipleTimes_writesHeaderOnlyOnce() throws IOException {
         Path csvPath = tempDir.resolve("transactions.csv");
+
         TransactionRepository repository = new CsvTransactionRepository(csvPath);
 
         Transaction secondTransaction = new Transaction(
@@ -391,13 +394,13 @@ class CsvTransactionRepositoryTest {
     }
 
     @Test
-    void save_whenFileCannotBeCreated_throwsTransactionRepositoryException() {
-        Path csvPath = tempDir
-                .resolve("missing-directory")
-                .resolve("transactions.csv");
+    void save_whenFileIsDeletedAfterInitialization_throwsTransactionRepositoryException() throws IOException {
+        Path csvPath = tempDir.resolve("transactions.csv");
 
         TransactionRepository repository =
                 new CsvTransactionRepository(csvPath);
+
+        Files.delete(csvPath);
 
         assertThatThrownBy(
                 () -> repository.save(TRANSACTION_TO_SAVE)
@@ -416,6 +419,32 @@ class CsvTransactionRepositoryTest {
         assertThatThrownBy(() -> repository.save(null))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("transaction");
+    }
+
+    private static Stream<Arguments> invalidExistingCsvFiles() {
+        return Stream.of(
+                Arguments.of(
+                        "existing file has invalid headers",
+                        """
+                                Wrong Header,Account Number,Account Holder Name,Amount,Status
+                                2025-03-01,7289-3445-1121,Maria Johnson,150.00,Settled
+                                """
+                ),
+                Arguments.of(
+                        "existing file contains invalid amount",
+                        """
+                                Transaction Date,Account Number,Account Holder Name,Amount,Status
+                                2025-03-01,7289-3445-1121,Maria Johnson,invalid,Settled
+                                """
+                ),
+                Arguments.of(
+                        "existing file contains malformed CSV",
+                        """
+                                Transaction Date,Account Number,Account Holder Name,Amount,Status
+                                2025-03-01,7289-3445-1121,"Maria Johnson,150.00,Settled
+                                """
+                )
+        );
     }
 
     private static Stream<Arguments> invalidHeaders() {
@@ -526,7 +555,7 @@ class CsvTransactionRepositoryTest {
         );
     }
 
-    private TransactionRepository repositoryWithCsv(String csv) throws IOException {
+    private CsvTransactionRepository repositoryWithCsv(String csv) throws IOException {
         Path csvPath = tempDir.resolve("transactions.csv");
         Files.writeString(csvPath, csv, StandardCharsets.UTF_8);
         return new CsvTransactionRepository(csvPath);
