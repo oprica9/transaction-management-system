@@ -25,4 +25,5 @@ public record TransactionCreateRequest(
         )
         BigDecimal amount
 ) {
+
 }
