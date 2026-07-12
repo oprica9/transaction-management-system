@@ -5,7 +5,7 @@ import './TransactionForm.css';
 
 interface TransactionFormProps {
     isSubmitting: boolean;
-    onSubmit: (request: TransactionCreateRequest) => Promise<boolean>;
+    onSubmit: (request: TransactionCreateRequest) => Promise<void>;
     onSuccess: () => void;
 }
 
@@ -68,17 +68,16 @@ export function TransactionForm({ isSubmitting, onSubmit, onSuccess }: Transacti
         if (Object.keys(validationErrors).length > 0) return;
 
         setSubmitError(null);
-        const succeeded = await onSubmit({
-            transactionDate: form.transactionDate,
-            accountNumber: form.accountNumber.trim(),
-            accountHolderName: form.accountHolderName.trim(),
-            amount: Number(form.amount),
-        });
-
-        if (succeeded) {
+        try {
+            await onSubmit({
+                transactionDate: form.transactionDate,
+                accountNumber: form.accountNumber.trim(),
+                accountHolderName: form.accountHolderName.trim(),
+                amount: Number(form.amount),
+            });
             onSuccess();
-        } else {
-            setSubmitError('Could not save the transaction. Please try again.');
+        } catch (err) {
+            setSubmitError(err instanceof Error ? err.message : 'Could not save the transaction. Please try again.');
         }
     }
 

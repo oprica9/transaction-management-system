@@ -5,7 +5,7 @@ import type { TransactionCreateRequest } from '../types/transaction';
 
 interface AddTransactionButtonProps {
     isSubmitting: boolean;
-    onAdd: (request: TransactionCreateRequest) => Promise<boolean>;
+    onAdd: (request: TransactionCreateRequest) => Promise<void>;
 }
 
 export function AddTransactionButton({ isSubmitting, onAdd }: AddTransactionButtonProps) {

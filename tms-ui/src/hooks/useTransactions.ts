@@ -6,20 +6,16 @@ import { ApiError } from '../api/ApiError';
 interface UseTransactionsResult {
     transactions: Transaction[];
     isLoading: boolean;
-    error: string | null;
+    loadError: string | null;
     isSubmitting: boolean;
-    addTransaction: (request: TransactionCreateRequest) => Promise<boolean>;
+    addTransaction: (request: TransactionCreateRequest) => Promise<void>;
     refresh: () => void;
 }
 
-/**
- * Owns the transaction list's lifecycle: initial load, manual refresh, and
- * adding a new transaction.
- */
 export function useTransactions(service: TransactionService): UseTransactionsResult {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const [loadError, setLoadError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [refreshToken, setRefreshToken] = useState(0);
 
@@ -27,7 +23,7 @@ export function useTransactions(service: TransactionService): UseTransactionsRes
         let cancelled = false;
 
         setIsLoading(true);
-        setError(null);
+        setLoadError(null);
 
         service
             .getAll()
@@ -35,7 +31,7 @@ export function useTransactions(service: TransactionService): UseTransactionsRes
                 if (!cancelled) setTransactions(data);
             })
             .catch((err: unknown) => {
-                if (!cancelled) setError(toMessage(err));
+                if (!cancelled) setLoadError(toMessage(err));
             })
             .finally(() => {
                 if (!cancelled) setIsLoading(false);
@@ -47,16 +43,11 @@ export function useTransactions(service: TransactionService): UseTransactionsRes
     }, [service, refreshToken]);
 
     const addTransaction = useCallback(
-        async (request: TransactionCreateRequest): Promise<boolean> => {
+        async (request: TransactionCreateRequest): Promise<void> => {
             setIsSubmitting(true);
-            setError(null);
             try {
                 const created = await service.create(request);
                 setTransactions((current) => [created, ...current]);
-                return true;
-            } catch (err) {
-                setError(toMessage(err));
-                return false;
             } finally {
                 setIsSubmitting(false);
             }
@@ -66,7 +57,7 @@ export function useTransactions(service: TransactionService): UseTransactionsRes
 
     const refresh = useCallback(() => setRefreshToken((token) => token + 1), []);
 
-    return { transactions, isLoading, error, isSubmitting, addTransaction, refresh };
+    return { transactions, isLoading, loadError, isSubmitting, addTransaction, refresh };
 }
 
 function toMessage(err: unknown): string {
