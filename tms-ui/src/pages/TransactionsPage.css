@@ -1,0 +1,88 @@
+.page {
+    width: min(1120px, calc(100% - 2rem));
+    margin: 0 auto;
+    padding: 3rem 0 4rem;
+}
+
+.page-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 2rem;
+    margin-bottom: 2rem;
+}
+
+.page-header__copy {
+    min-width: 0;
+}
+
+.eyebrow {
+    margin: 0 0 0.5rem;
+    color: var(--color-primary);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+}
+
+.page-title {
+    margin: 0;
+    color: var(--color-text);
+    font-size: clamp(2rem, 5vw, 2.625rem);
+    line-height: 1.1;
+}
+
+.page-subtitle {
+    max-width: 40rem;
+    margin: 0.75rem 0 0;
+    color: var(--color-text-muted);
+    line-height: 1.6;
+}
+
+.transactions-panel {
+    overflow: hidden;
+    min-height: 7rem;
+    border: 1px solid var(--color-border);
+    border-radius: 1rem;
+    background: var(--color-surface);
+    box-shadow: var(--shadow-card);
+}
+
+.state-message {
+    margin: 0;
+    padding: 3rem 1.5rem;
+    color: var(--color-text-muted);
+    text-align: center;
+}
+
+.empty-state {
+    padding: 3rem 1.5rem;
+    color: var(--color-text-muted);
+    text-align: center;
+}
+
+.empty-state p {
+    margin: 0;
+}
+
+.empty-state__hint {
+    margin-top: 0.4rem !important;
+    font-size: 0.875rem;
+}
+
+@media (max-width: 720px) {
+    .page {
+        width: min(100% - 1.25rem, 1120px);
+        padding: 1.5rem 0 3rem;
+    }
+
+    .page-header {
+        align-items: stretch;
+        flex-direction: column;
+        gap: 1.25rem;
+    }
+
+    .page-header .btn {
+        width: 100%;
+    }
+}

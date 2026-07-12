@@ -5,8 +5,12 @@ import './TransactionForm.css';
 
 interface TransactionFormProps {
     isSubmitting: boolean;
-    onSubmit: (request: TransactionCreateRequest) => Promise<void>;
-    onSuccess: () => void;
+
+    onSubmit(
+        request: TransactionCreateRequest,
+    ): Promise<void>;
+
+    onSuccess(): void;
 }
 
 interface FormState {
@@ -16,7 +20,9 @@ interface FormState {
     amount: string;
 }
 
-type FieldErrors = Partial<Record<keyof FormState, string>>;
+type FieldErrors = Partial<
+    Record<keyof FormState, string>
+>;
 
 const EMPTY_FORM: FormState = {
     transactionDate: '',
@@ -25,122 +31,296 @@ const EMPTY_FORM: FormState = {
     amount: '',
 };
 
-/** Validates the form locally so obviously-bad input never reaches the API. */
-function validate(form: FormState): FieldErrors {
-    const errors: FieldErrors = {};
+export function TransactionForm({
+    isSubmitting,
+    onSubmit,
+    onSuccess,
+}: TransactionFormProps) {
+    const [form, setForm] =
+        useState<FormState>(EMPTY_FORM);
 
-    if (!form.transactionDate) {
-        errors.transactionDate = 'Transaction date is required.';
+    const [errors, setErrors] =
+        useState<FieldErrors>({});
+
+    const [submitError, setSubmitError] =
+        useState<string | null>(null);
+
+    function updateField<K extends keyof FormState>(
+        field: K,
+        value: FormState[K],
+    ) {
+        setForm((current) => ({
+            ...current,
+            [field]: value,
+        }));
+
+        setErrors((current) => {
+            if (!current[field]) {
+                return current;
+            }
+
+            const next = { ...current };
+            delete next[field];
+            return next;
+        });
+
+        setSubmitError(null);
     }
 
-    if (!form.accountNumber.trim()) {
-        errors.accountNumber = 'Account number is required.';
-    }
-
-    if (!form.accountHolderName.trim()) {
-        errors.accountHolderName = 'Account holder name is required.';
-    }
-
-    const amount = Number(form.amount);
-    if (!form.amount) {
-        errors.amount = 'Amount is required.';
-    } else if (Number.isNaN(amount) || amount <= 0) {
-        errors.amount = 'Amount must be a number greater than zero.';
-    }
-
-    return errors;
-}
-
-export function TransactionForm({ isSubmitting, onSubmit, onSuccess }: TransactionFormProps) {
-    const [form, setForm] = useState<FormState>(EMPTY_FORM);
-    const [errors, setErrors] = useState<FieldErrors>({});
-    const [submitError, setSubmitError] = useState<string | null>(null);
-
-    function updateField<K extends keyof FormState>(field: K, value: FormState[K]) {
-        setForm((current) => ({ ...current, [field]: value }));
-    }
-
-    async function handleSubmit(event: FormEvent) {
+    async function handleSubmit(
+        event: FormEvent<HTMLFormElement>,
+    ) {
         event.preventDefault();
 
         const validationErrors = validate(form);
+
         setErrors(validationErrors);
-        if (Object.keys(validationErrors).length > 0) return;
+
+        if (
+            Object.keys(validationErrors).length > 0
+        ) {
+            return;
+        }
 
         setSubmitError(null);
+
         try {
             await onSubmit({
                 transactionDate: form.transactionDate,
-                accountNumber: form.accountNumber.trim(),
-                accountHolderName: form.accountHolderName.trim(),
+                accountNumber:
+                    form.accountNumber.trim(),
+                accountHolderName:
+                    form.accountHolderName.trim(),
                 amount: Number(form.amount),
             });
+
             onSuccess();
-        } catch (err) {
-            setSubmitError(err instanceof Error ? err.message : 'Could not save the transaction. Please try again.');
+        } catch (error) {
+            setSubmitError(
+                error instanceof Error
+                    ? error.message
+                    : 'Could not save the transaction. Please try again.',
+            );
         }
     }
 
     return (
-        <form className="transaction-form" onSubmit={handleSubmit} noValidate>
+        <form
+            className="transaction-form"
+            onSubmit={handleSubmit}
+            noValidate
+        >
             <div className="form-field">
-                <label htmlFor="transactionDate">Transaction Date</label>
+                <label htmlFor="transactionDate">
+                    Transaction Date
+                </label>
+
                 <input
                     id="transactionDate"
+                    name="transactionDate"
                     type="date"
                     value={form.transactionDate}
-                    onChange={(e) => updateField('transactionDate', e.target.value)}
-                    aria-invalid={Boolean(errors.transactionDate)}
+                    disabled={isSubmitting}
+                    data-autofocus
+                    onChange={(event) =>
+                        updateField(
+                            'transactionDate',
+                            event.target.value,
+                        )
+                    }
+                    aria-invalid={
+                        Boolean(errors.transactionDate)
+                    }
+                    aria-describedby={
+                        errors.transactionDate
+                            ? 'transactionDate-error'
+                            : undefined
+                    }
                 />
-                {errors.transactionDate && <p className="field-error">{errors.transactionDate}</p>}
+
+                {errors.transactionDate && (
+                    <p
+                        id="transactionDate-error"
+                        className="field-error"
+                    >
+                        {errors.transactionDate}
+                    </p>
+                )}
             </div>
 
             <div className="form-field">
-                <label htmlFor="accountNumber">Account Number</label>
+                <label htmlFor="accountNumber">
+                    Account Number
+                </label>
+
                 <input
                     id="accountNumber"
+                    name="accountNumber"
                     type="text"
                     placeholder="e.g. 1234-5678-9012"
                     value={form.accountNumber}
-                    onChange={(e) => updateField('accountNumber', e.target.value)}
-                    aria-invalid={Boolean(errors.accountNumber)}
+                    disabled={isSubmitting}
+                    autoComplete="off"
+                    onChange={(event) =>
+                        updateField(
+                            'accountNumber',
+                            event.target.value,
+                        )
+                    }
+                    aria-invalid={
+                        Boolean(errors.accountNumber)
+                    }
+                    aria-describedby={
+                        errors.accountNumber
+                            ? 'accountNumber-error'
+                            : undefined
+                    }
                 />
-                {errors.accountNumber && <p className="field-error">{errors.accountNumber}</p>}
+
+                {errors.accountNumber && (
+                    <p
+                        id="accountNumber-error"
+                        className="field-error"
+                    >
+                        {errors.accountNumber}
+                    </p>
+                )}
             </div>
 
             <div className="form-field">
-                <label htmlFor="accountHolderName">Account Holder Name</label>
+                <label htmlFor="accountHolderName">
+                    Account Holder Name
+                </label>
+
                 <input
                     id="accountHolderName"
+                    name="accountHolderName"
                     type="text"
                     placeholder="e.g. Maria Johnson"
                     value={form.accountHolderName}
-                    onChange={(e) => updateField('accountHolderName', e.target.value)}
-                    aria-invalid={Boolean(errors.accountHolderName)}
+                    disabled={isSubmitting}
+                    autoComplete="name"
+                    onChange={(event) =>
+                        updateField(
+                            'accountHolderName',
+                            event.target.value,
+                        )
+                    }
+                    aria-invalid={
+                        Boolean(
+                            errors.accountHolderName,
+                        )
+                    }
+                    aria-describedby={
+                        errors.accountHolderName
+                            ? 'accountHolderName-error'
+                            : undefined
+                    }
                 />
-                {errors.accountHolderName && <p className="field-error">{errors.accountHolderName}</p>}
+
+                {errors.accountHolderName && (
+                    <p
+                        id="accountHolderName-error"
+                        className="field-error"
+                    >
+                        {errors.accountHolderName}
+                    </p>
+                )}
             </div>
 
             <div className="form-field">
-                <label htmlFor="amount">Amount</label>
+                <label htmlFor="amount">
+                    Amount
+                </label>
+
                 <input
                     id="amount"
+                    name="amount"
                     type="number"
                     step="0.01"
-                    min="0"
+                    min="0.01"
+                    inputMode="decimal"
                     placeholder="0.00"
                     value={form.amount}
-                    onChange={(e) => updateField('amount', e.target.value)}
-                    aria-invalid={Boolean(errors.amount)}
+                    disabled={isSubmitting}
+                    onChange={(event) =>
+                        updateField(
+                            'amount',
+                            event.target.value,
+                        )
+                    }
+                    aria-invalid={
+                        Boolean(errors.amount)
+                    }
+                    aria-describedby={
+                        errors.amount
+                            ? 'amount-error'
+                            : undefined
+                    }
                 />
-                {errors.amount && <p className="field-error">{errors.amount}</p>}
+
+                {errors.amount && (
+                    <p
+                        id="amount-error"
+                        className="field-error"
+                    >
+                        {errors.amount}
+                    </p>
+                )}
             </div>
 
-            {submitError && <p className="form-error">{submitError}</p>}
+            {submitError && (
+                <p
+                    className="form-error"
+                    role="alert"
+                >
+                    {submitError}
+                </p>
+            )}
 
-            <button type="submit" className="btn btn--primary btn--full" disabled={isSubmitting}>
-                {isSubmitting ? 'Saving…' : 'Add Transaction'}
+            <button
+                type="submit"
+                className="btn btn--primary btn--full"
+                disabled={isSubmitting}
+            >
+                {isSubmitting
+                    ? 'Saving…'
+                    : 'Add Transaction'}
             </button>
         </form>
     );
+}
+
+function validate(form: FormState): FieldErrors {
+    const errors: FieldErrors = {};
+
+    if (!form.transactionDate) {
+        errors.transactionDate =
+            'Transaction date is required.';
+    }
+
+    if (!form.accountNumber.trim()) {
+        errors.accountNumber =
+            'Account number is required.';
+    }
+
+    if (!form.accountHolderName.trim()) {
+        errors.accountHolderName =
+            'Account holder name is required.';
+    }
+
+    const amountText = form.amount.trim();
+    const amount = Number(amountText);
+
+    if (!amountText) {
+        errors.amount = 'Amount is required.';
+    } else if (
+        !Number.isFinite(amount)
+        || amount <= 0
+    ) {
+        errors.amount =
+            'Amount must be greater than zero.';
+    }
+
+    return errors;
 }

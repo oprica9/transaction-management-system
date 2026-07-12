@@ -1,28 +1,57 @@
 :root {
   color-scheme: light;
 
-  /* Neutral surfaces */
-  --color-bg: #f5f6f8;
+  --color-bg: #f3f4f6;
   --color-surface: #ffffff;
-  --color-border: #e2e5ea;
-  --color-text: #1a1d23;
+  --color-border: #e5e7eb;
+
+  --color-text: #111827;
   --color-text-muted: #6b7280;
 
-  /* Primary accent — used sparingly, for actions only */
-  --color-primary: #2b4dbb;
-  --color-primary-hover: #21399a;
+  --color-primary: #4f46e5;
+  --color-primary-hover: #4338ca;
 
-  /* Status colors (spec: Pending=yellow, Settled=green, Failed=red) */
-  --color-status-pending-bg: #fdf3d9;
-  --color-status-pending-text: #92650a;
-  --color-status-settled-bg: #e2f4e8;
-  --color-status-settled-text: #187a44;
-  --color-status-failed-bg: #fbe6e6;
-  --color-status-failed-text: #b3261e;
+  --color-pending-bg: #fef3c7;
+  --color-pending-text: #92400e;
+
+  --color-settled-bg: #dcfce7;
+  --color-settled-text: #166534;
+
+  --color-danger-bg: #fee2e2;
+  --color-danger-text: #991b1b;
+
+  --shadow-card:
+    0 10px 25px rgba(15, 23, 42, 0.08);
+
+  --shadow-modal:
+    0 24px 70px rgba(15, 23, 42, 0.28);
 
   --font-sans:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, 'Roboto Mono', Menlo, Consolas, monospace;
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    Arial,
+    sans-serif;
+
+  --font-mono:
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    monospace;
+
+  font-family: var(--font-sans);
+  color: var(--color-text);
+  background: var(--color-bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 * {
@@ -32,19 +61,18 @@
 html,
 body,
 #root {
-  height: 100%;
+  min-height: 100%;
 }
 
 body {
+  min-width: 320px;
+  min-height: 100vh;
   margin: 0;
-  font-family: var(--font-sans);
-  background: var(--color-bg);
-  color: var(--color-text);
-  -webkit-font-smoothing: antialiased;
 }
 
-button {
-  font-family: inherit;
+button,
+input {
+  font: inherit;
 }
 
 .btn {
@@ -52,18 +80,20 @@ button {
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
-  font-size: 0.9rem;
-  font-weight: 600;
-  padding: 0.6rem 1rem;
-  border-radius: 8px;
+  padding: 0.7rem 1rem;
   border: 1px solid transparent;
+  border-radius: 0.625rem;
+  font-size: 0.9rem;
+  font-weight: 700;
   cursor: pointer;
-  transition: background-color 0.12s ease;
+  transition:
+    background-color 120ms ease,
+    opacity 120ms ease;
 }
 
 .btn:disabled {
-  opacity: 0.6;
   cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .btn--primary {
@@ -78,4 +108,16 @@ button {
 .btn:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  border: 0;
+  white-space: nowrap;
+  clip: rect(0, 0, 0, 0);
 }

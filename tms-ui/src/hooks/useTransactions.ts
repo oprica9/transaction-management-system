@@ -1,18 +1,34 @@
-import { useCallback, useEffect, useState } from 'react';
-import type { TransactionService } from '../api/TransactionService';
-import type { Transaction, TransactionCreateRequest } from '../types/transaction';
+import {
+    useCallback,
+    useEffect,
+    useState,
+} from 'react';
 import { ApiError } from '../api/ApiError';
+import {
+    transactionApi,
+    type TransactionApi,
+} from '../api/transactionApi';
+import type {
+    Transaction,
+    TransactionCreateRequest,
+} from '../types/transaction';
 
 interface UseTransactionsResult {
     transactions: Transaction[];
     isLoading: boolean;
     loadError: string | null;
     isSubmitting: boolean;
-    addTransaction: (request: TransactionCreateRequest) => Promise<void>;
-    refresh: () => void;
+
+    addTransaction(
+        request: TransactionCreateRequest,
+    ): Promise<void>;
+
+    refresh(): void;
 }
 
-export function useTransactions(service: TransactionService): UseTransactionsResult {
+export function useTransactions(
+    api: TransactionApi = transactionApi,
+): UseTransactionsResult {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
@@ -20,48 +36,79 @@ export function useTransactions(service: TransactionService): UseTransactionsRes
     const [refreshToken, setRefreshToken] = useState(0);
 
     useEffect(() => {
-        let cancelled = false;
+        const controller = new AbortController();
 
-        setIsLoading(true);
-        setLoadError(null);
+        async function loadTransactions() {
+            setIsLoading(true);
+            setLoadError(null);
 
-        service
-            .getAll()
-            .then((data) => {
-                if (!cancelled) setTransactions(data);
-            })
-            .catch((err: unknown) => {
-                if (!cancelled) setLoadError(toMessage(err));
-            })
-            .finally(() => {
-                if (!cancelled) setIsLoading(false);
-            });
+            try {
+                const loadedTransactions = await api.getAll(
+                    controller.signal,
+                );
+
+                setTransactions(loadedTransactions);
+            } catch (error) {
+                if (!controller.signal.aborted) {
+                    setLoadError(toErrorMessage(error));
+                }
+            } finally {
+                if (!controller.signal.aborted) {
+                    setIsLoading(false);
+                }
+            }
+        }
+
+        void loadTransactions();
 
         return () => {
-            cancelled = true;
+            controller.abort();
         };
-    }, [service, refreshToken]);
+    }, [api, refreshToken]);
 
     const addTransaction = useCallback(
-        async (request: TransactionCreateRequest): Promise<void> => {
+        async (
+            request: TransactionCreateRequest,
+        ): Promise<void> => {
             setIsSubmitting(true);
+
             try {
-                const created = await service.create(request);
-                setTransactions((current) => [created, ...current]);
+                const createdTransaction = await api.create(request);
+
+                // The backend appends to the CSV, so the frontend appends too.
+                setTransactions((current) => [
+                    ...current,
+                    createdTransaction,
+                ]);
             } finally {
                 setIsSubmitting(false);
             }
         },
-        [service],
+        [api],
     );
 
-    const refresh = useCallback(() => setRefreshToken((token) => token + 1), []);
+    const refresh = useCallback(() => {
+        setRefreshToken((current) => current + 1);
+    }, []);
 
-    return { transactions, isLoading, loadError, isSubmitting, addTransaction, refresh };
+    return {
+        transactions,
+        isLoading,
+        loadError,
+        isSubmitting,
+        addTransaction,
+        refresh,
+    };
 }
 
-function toMessage(err: unknown): string {
-    if (err instanceof ApiError) return err.message;
-    if (err instanceof Error) return err.message;
+function toErrorMessage(error: unknown): string {
+    if (error instanceof ApiError) {
+        return error.message;
+    }
+
+    if (error instanceof Error) {
+        return error.message;
+    }
+
     return 'Something went wrong. Please try again.';
 }

@@ -1,63 +1,50 @@
-.table-wrapper {
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: 12px;
-    overflow: auto;
+.table-scroll {
+    overflow-x: auto;
 }
 
 .transaction-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 0.9rem;
+    text-align: left;
 }
 
 .transaction-table th,
 .transaction-table td {
-    text-align: left;
-    padding: 0.85rem 1.1rem;
+    padding: 1rem;
+    border-bottom: 1px solid var(--color-border);
     white-space: nowrap;
 }
 
-.transaction-table thead th {
+.transaction-table thead {
+    background: var(--color-bg);
+}
+
+.transaction-table th {
+    color: var(--color-text-muted);
     font-size: 0.75rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: var(--color-text-muted);
-    border-bottom: 1px solid var(--color-border);
 }
 
-.transaction-table tbody tr:not(:last-child) td {
-    border-bottom: 1px solid var(--color-border);
+.transaction-table td {
+    color: var(--color-text);
+}
+
+.transaction-table tbody tr:last-child td {
+    border-bottom: 0;
 }
 
 .transaction-table tbody tr:hover {
     background: var(--color-bg);
 }
 
-.col-mono {
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-}
-
-.col-amount {
+.transaction-table .col-amount {
     text-align: right;
 }
 
-.empty-state {
-    background: var(--color-surface);
-    border: 1px dashed var(--color-border);
-    border-radius: 12px;
-    padding: 3rem 1.5rem;
-    text-align: center;
-    color: var(--color-text-muted);
-}
-
-.empty-state p {
-    margin: 0;
-}
-
-.empty-state__hint {
-    font-size: 0.875rem;
-    margin-top: 0.35rem !important;
+.col-mono {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
 }

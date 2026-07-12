@@ -1,52 +1,64 @@
 .modal-backdrop {
     position: fixed;
+    z-index: 100;
     inset: 0;
-    background: rgba(17, 20, 27, 0.5);
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 1rem;
-    z-index: 100;
+    background: rgba(17, 24, 39, 0.55);
+    overscroll-behavior: contain;
 }
 
 .modal {
-    background: var(--color-surface);
-    border-radius: 12px;
-    box-shadow: 0 20px 60px rgba(17, 20, 27, 0.25);
-    width: 100%;
-    max-width: 440px;
+    width: min(100%, 440px);
     max-height: 90vh;
     overflow-y: auto;
+    border: 1px solid var(--color-border);
+    border-radius: 1rem;
+    outline: none;
+    background: var(--color-surface);
+    box-shadow: var(--shadow-modal);
 }
 
 .modal__header {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 1rem;
     padding: 1.25rem 1.5rem;
     border-bottom: 1px solid var(--color-border);
 }
 
 .modal__header h2 {
-    font-size: 1.0625rem;
-    font-weight: 700;
     margin: 0;
+    font-size: 1.0625rem;
 }
 
 .modal__close {
-    background: none;
-    border: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    border: 0;
+    border-radius: 0.5rem;
+    background: transparent;
+    color: var(--color-text-muted);
     font-size: 1.5rem;
     line-height: 1;
-    color: var(--color-text-muted);
     cursor: pointer;
-    padding: 0.25rem;
-    border-radius: 6px;
 }
 
 .modal__close:hover {
     background: var(--color-bg);
     color: var(--color-text);
+}
+
+.modal__close:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
 }
 
 .modal__body {

@@ -2,33 +2,33 @@
     display: inline-flex;
     align-items: center;
     gap: 0.4em;
-    padding: 0.25rem 0.65rem;
+    padding: 0.3rem 0.65rem;
     border-radius: 999px;
     font-size: 0.8125rem;
-    font-weight: 600;
+    font-weight: 700;
     line-height: 1;
     white-space: nowrap;
 }
 
 .status-badge::before {
-    content: '';
     width: 0.5em;
     height: 0.5em;
     border-radius: 50%;
     background: currentColor;
+    content: '';
 }
 
 .status-badge--pending {
-    background: var(--color-status-pending-bg);
-    color: var(--color-status-pending-text);
+    background: var(--color-pending-bg);
+    color: var(--color-pending-text);
 }
 
 .status-badge--settled {
-    background: var(--color-status-settled-bg);
-    color: var(--color-status-settled-text);
+    background: var(--color-settled-bg);
+    color: var(--color-settled-text);
 }
 
 .status-badge--failed {
-    background: var(--color-status-failed-bg);
-    color: var(--color-status-failed-text);
+    background: var(--color-danger-bg);
+    color: var(--color-danger-text);
 }

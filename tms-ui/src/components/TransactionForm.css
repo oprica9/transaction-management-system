@@ -11,43 +11,48 @@
 }
 
 .form-field label {
+    color: var(--color-text-muted);
     font-size: 0.8125rem;
     font-weight: 600;
-    color: var(--color-text-muted);
 }
 
 .form-field input {
-    font: inherit;
-    padding: 0.6rem 0.75rem;
+    width: 100%;
+    padding: 0.65rem 0.75rem;
     border: 1px solid var(--color-border);
-    border-radius: 8px;
+    border-radius: 0.5rem;
     background: var(--color-bg);
     color: var(--color-text);
 }
 
 .form-field input:focus-visible {
+    border-color: var(--color-primary);
     outline: 2px solid var(--color-primary);
     outline-offset: 1px;
-    border-color: var(--color-primary);
 }
 
 .form-field input[aria-invalid='true'] {
-    border-color: var(--color-status-failed-text);
+    border-color: var(--color-danger-text);
+}
+
+.form-field input:disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
 }
 
 .field-error {
-    font-size: 0.8125rem;
-    color: var(--color-status-failed-text);
     margin: 0;
+    color: var(--color-danger-text);
+    font-size: 0.8125rem;
 }
 
 .form-error {
-    font-size: 0.875rem;
-    color: var(--color-status-failed-text);
-    background: var(--color-status-failed-bg);
-    padding: 0.6rem 0.75rem;
-    border-radius: 8px;
     margin: 0;
+    padding: 0.65rem 0.75rem;
+    border-radius: 0.5rem;
+    background: var(--color-danger-bg);
+    color: var(--color-danger-text);
+    font-size: 0.875rem;
 }
 
 .btn--full {
