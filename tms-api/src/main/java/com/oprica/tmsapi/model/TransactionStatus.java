@@ -1,5 +1,6 @@
 package com.oprica.tmsapi.model;
 
+import com.fasterxml.jackson.annotation.JsonValue;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
@@ -13,6 +14,11 @@ public enum TransactionStatus {
     FAILED("Failed");
 
     private final String value;
+
+    @JsonValue
+    public String getValue() {
+        return value;
+    }
 
     public static TransactionStatus fromValue(String value) {
         return Arrays.stream(values())
