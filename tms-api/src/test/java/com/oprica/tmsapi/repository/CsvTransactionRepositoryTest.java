@@ -45,13 +45,15 @@ class CsvTransactionRepositoryTest {
     Path tempDir;
 
     @Test
-    void constructor_whenFileAndParentDirectoriesDoNotExist_initializesCsv() throws IOException {
+    void initialize_whenFileAndParentDirectoriesDoNotExist_initializesCsv() throws IOException {
         Path csvPath = tempDir
                 .resolve("nested")
                 .resolve("data")
                 .resolve("transactions.csv");
 
         CsvTransactionRepository repository = new CsvTransactionRepository(csvPath);
+
+        repository.initialize();
 
         assertThat(csvPath).isRegularFile();
 
@@ -64,11 +66,13 @@ class CsvTransactionRepositoryTest {
     }
 
     @Test
-    void constructor_whenFileIsEmpty_writesHeader() throws IOException {
+    void initialize_whenFileIsEmpty_writesHeader() throws IOException {
         Path csvPath = tempDir.resolve("transactions.csv");
         Files.createFile(csvPath);
 
         CsvTransactionRepository repository = new CsvTransactionRepository(csvPath);
+
+        repository.initialize();
 
         assertThat(Files.readAllLines(
                 csvPath,
@@ -79,11 +83,11 @@ class CsvTransactionRepositoryTest {
     }
 
     @Test
-    void constructor_whenFileExists_doesNotModifyIt() throws IOException {
+    void initialize_whenFileExists_doesNotModifyIt() throws IOException {
         String existingCsv = """
-                Transaction Date,Account Number,Account Holder Name,Amount,Status
-                2025-03-01,7289-3445-1121,Maria Johnson,150.00,Settled
-                """;
+            Transaction Date,Account Number,Account Holder Name,Amount,Status
+            2025-03-01,7289-3445-1121,Maria Johnson,150.00,Settled
+            """;
 
         Path csvPath = tempDir.resolve("transactions.csv");
 
@@ -93,7 +97,9 @@ class CsvTransactionRepositoryTest {
                 StandardCharsets.UTF_8
         );
 
-        new CsvTransactionRepository(csvPath);
+        CsvTransactionRepository repository = new CsvTransactionRepository(csvPath);
+
+        repository.initialize();
 
         assertThat(Files.readString(
                 csvPath,
@@ -262,7 +268,7 @@ class CsvTransactionRepositoryTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("invalidExistingCsvFiles")
-    void validate_whenExistingCsvIsInvalid_throwsWithoutModifyingFile(String description, String existingCsv) throws IOException {
+    void initialize_whenExistingCsvIsInvalid_throwsWithoutModifyingFile(String description, String existingCsv) throws IOException {
         Path csvPath = tempDir.resolve("transactions.csv");
 
         Files.writeString(csvPath, existingCsv, StandardCharsets.UTF_8);
@@ -271,7 +277,7 @@ class CsvTransactionRepositoryTest {
 
         CsvTransactionRepository repository = new CsvTransactionRepository(csvPath);
 
-        assertThatThrownBy(repository::validate)
+        assertThatThrownBy(repository::initialize)
                 .isInstanceOf(InvalidTransactionCsvException.class);
 
         assertThat(Files.readString(csvPath, StandardCharsets.UTF_8))
@@ -340,7 +346,8 @@ class CsvTransactionRepositoryTest {
     void save_whenCalledMultipleTimes_writesHeaderOnlyOnce() throws IOException {
         Path csvPath = tempDir.resolve("transactions.csv");
 
-        TransactionRepository repository = new CsvTransactionRepository(csvPath);
+        CsvTransactionRepository repository = new CsvTransactionRepository(csvPath);
+        repository.initialize();
 
         Transaction secondTransaction = new Transaction(
                 LocalDate.of(2026, 12, 8),
@@ -397,9 +404,10 @@ class CsvTransactionRepositoryTest {
     void save_whenFileIsDeletedAfterInitialization_throwsTransactionRepositoryException() throws IOException {
         Path csvPath = tempDir.resolve("transactions.csv");
 
-        TransactionRepository repository =
+        CsvTransactionRepository repository =
                 new CsvTransactionRepository(csvPath);
 
+        repository.initialize();
         Files.delete(csvPath);
 
         assertThatThrownBy(

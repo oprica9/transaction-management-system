@@ -5,6 +5,7 @@ import com.oprica.tmsapi.exception.InvalidTransactionCsvException;
 import com.oprica.tmsapi.exception.TransactionRepositoryException;
 import com.oprica.tmsapi.model.Transaction;
 import com.oprica.tmsapi.model.TransactionStatus;
+import jakarta.annotation.PostConstruct;
 import org.apache.commons.csv.CSVException;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
@@ -28,6 +29,9 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static com.oprica.tmsapi.csv.TransactionCsvColumn.ACCOUNT_HOLDER_NAME;
 import static com.oprica.tmsapi.csv.TransactionCsvColumn.ACCOUNT_NUMBER;
@@ -56,13 +60,17 @@ public class CsvTransactionRepository implements TransactionRepository {
     private static final CSVFormat WRITE_FORMAT = CSVFormat.RFC4180;
 
     private final Path path;
+    private final ReadWriteLock lock = new ReentrantReadWriteLock();
+    private final Lock readLock = lock.readLock();
+    private final Lock writeLock = lock.writeLock();
 
     public CsvTransactionRepository(Path path) {
         this.path = Objects.requireNonNull(path, "path").toAbsolutePath().normalize();
-        initializeFile();
     }
 
-    public void validate() {
+    @PostConstruct
+    protected void initialize() {
+        initializeFile();
         readTransactions();
     }
 
@@ -87,6 +95,7 @@ public class CsvTransactionRepository implements TransactionRepository {
     }
 
     private List<Transaction> readTransactions() {
+        readLock.lock();
         try (BufferedReader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8);
              CSVParser parser = READ_FORMAT.parse(reader)) {
 
@@ -99,30 +108,38 @@ public class CsvTransactionRepository implements TransactionRepository {
 
         } catch (IOException exception) {
             throw mapReadException(exception);
+        } finally {
+            readLock.unlock();
         }
     }
 
     private void appendTransaction(Transaction transaction) throws IOException {
-        boolean needsRecordSeparator = !endsWithLineBreak(path);
+        writeLock.lock();
 
-        try (BufferedWriter writer = Files.newBufferedWriter(
-                path,
-                StandardCharsets.UTF_8,
-                StandardOpenOption.APPEND
-        );
-             CSVPrinter printer = new CSVPrinter(writer, WRITE_FORMAT)) {
+        try {
+            boolean needsRecordSeparator = !endsWithLineBreak(path);
 
-            if (needsRecordSeparator) {
-                printer.println();
-            }
-
-            printer.printRecord(
-                    transaction.transactionDate(),
-                    transaction.accountNumber(),
-                    transaction.accountHolderName(),
-                    transaction.amount().toPlainString(),
-                    transaction.status().getValue()
+            try (BufferedWriter writer = Files.newBufferedWriter(
+                    path,
+                    StandardCharsets.UTF_8,
+                    StandardOpenOption.APPEND
             );
+                 CSVPrinter printer = new CSVPrinter(writer, WRITE_FORMAT)) {
+
+                if (needsRecordSeparator) {
+                    printer.println();
+                }
+
+                printer.printRecord(
+                        transaction.transactionDate(),
+                        transaction.accountNumber(),
+                        transaction.accountHolderName(),
+                        transaction.amount().toPlainString(),
+                        transaction.status().getValue()
+                );
+            }
+        } finally {
+            writeLock.unlock();
         }
     }
 
@@ -157,8 +174,7 @@ public class CsvTransactionRepository implements TransactionRepository {
 
         } catch (IllegalArgumentException exception) {
             /*
-             * Domain validation errors such as an overlong account
-             * holder name are converted into CSV data errors.
+             * Domain validation failures are converted into CSV data errors.
              */
             throw new InvalidTransactionCsvException("Record %d contains invalid transaction data: %s"
                     .formatted(record.getRecordNumber(), exception.getMessage()), exception);

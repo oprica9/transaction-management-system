@@ -11,8 +11,6 @@ public class TransactionRepositoryConfig {
 
     @Bean
     public TransactionRepository transactionRepository(TmsProperties properties) {
-        CsvTransactionRepository repository = new CsvTransactionRepository(properties.storage().csvPath());
-        repository.validate();
-        return repository;
+        return new CsvTransactionRepository(properties.storage().csvPath());
     }
 }

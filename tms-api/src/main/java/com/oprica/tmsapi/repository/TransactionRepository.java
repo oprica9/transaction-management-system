@@ -17,7 +17,7 @@ public interface TransactionRepository {
      * Persists a new transaction.
      *
      * @param transaction transaction to persist
-     * @return transaction, if it was successfully persisted
+     * @return the persisted transaction
      */
     Transaction save(Transaction transaction);
 }
