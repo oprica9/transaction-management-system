@@ -70,11 +70,11 @@ Backend dependencies are downloaded automatically when the backend starts.
 
 The application includes local defaults, so no configuration files need to be changed.
 
-| Setting                          | Environment variable  | Default                   |
-| -------------------------------- | --------------------- | ------------------------- |
-| CSV file                         | `TMS_CSV_PATH`        | `./data/transactions.csv` |
-| Allowed frontend origin          | `TMS_ALLOWED_ORIGINS` | `http://localhost:5173`   |
-| Backend URL used by the frontend | `VITE_API_BASE_URL`   | `http://localhost:8080`   |
+| Setting                          | Environment variable  | Default                             |
+| -------------------------------- | --------------------- | ----------------------------------- |
+| CSV file                         | `TMS_CSV_PATH`        | `{user.home}/tms/transactions.csv}` |
+| Allowed frontend origin          | `TMS_ALLOWED_ORIGINS` | `http://localhost:5173`             |
+| Backend URL used by the frontend | `VITE_API_BASE_URL`   | `http://localhost:8080`             |
 
 The sample data is available in [`data/transactions.csv`](data/transactions.csv).
 

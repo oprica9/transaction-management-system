@@ -4,7 +4,7 @@ spring:
 
 tms:
   storage:
-    csv-path: ${TMS_CSV_PATH}
+    csv-path: ${TMS_CSV_PATH:${user.home}/tms/transactions.csv}
   cors:
     allowed-origins:
       - ${TMS_CORS_ALLOWED_ORIGINS:http://localhost:5173}
