@@ -20,6 +20,16 @@ public enum TransactionStatus {
         return value;
     }
 
+    /**
+     * Resolves a status from its external representation.
+     *
+     * <p>Matching is case-sensitive; for example, {@code "Settled"} is valid while
+     * {@code "settled"} is not.
+     *
+     * @param value external status value
+     * @return matching transaction status
+     * @throws IllegalArgumentException if the value is unsupported
+     */
     @JsonCreator
     public static TransactionStatus fromValue(String value) {
         return Arrays.stream(values())

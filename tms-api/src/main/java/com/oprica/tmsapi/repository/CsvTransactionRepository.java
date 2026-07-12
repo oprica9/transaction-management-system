@@ -39,6 +39,17 @@ import static com.oprica.tmsapi.csv.TransactionCsvColumn.AMOUNT;
 import static com.oprica.tmsapi.csv.TransactionCsvColumn.STATUS;
 import static com.oprica.tmsapi.csv.TransactionCsvColumn.TRANSACTION_DATE;
 
+/**
+ * File-backed transaction repository using an RFC 4180 CSV file.
+ *
+ * <p>The repository validates the complete CSV schema and all existing records
+ * during initialization. An existing invalid file causes initialization to fail
+ * and is never modified automatically.
+ *
+ * <p>Operations are thread-safe within a single repository instance. The locking
+ * does not coordinate access with other application instances or external
+ * processes writing to the same file.
+ */
 public class CsvTransactionRepository implements TransactionRepository {
 
     /*
@@ -68,6 +79,17 @@ public class CsvTransactionRepository implements TransactionRepository {
         this.path = Objects.requireNonNull(path, "path").toAbsolutePath().normalize();
     }
 
+    /**
+     * Initializes and validates the configured CSV file.
+     *
+     * <p>Missing parent directories and files are created. An empty file receives
+     * the expected header. Existing non-empty files are validated without being
+     * modified.
+     *
+     * @throws InvalidTransactionCsvException if an existing CSV has an invalid
+     *                                        schema, malformed syntax, or invalid data
+     * @throws TransactionRepositoryException if the file cannot be created or read
+     */
     @PostConstruct
     protected void initialize() {
         initializeFile();

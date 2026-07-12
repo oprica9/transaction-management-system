@@ -3,6 +3,12 @@ package com.oprica.tmsapi.model;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+/**
+ * Immutable transaction domain model.
+ *
+ * <p>Account identifiers and holder names are stripped of surrounding
+ * whitespace. All fields are required and the amount must be greater than zero.
+ */
 public record Transaction(
         LocalDate transactionDate,
         String accountNumber,
