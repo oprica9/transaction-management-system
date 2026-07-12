@@ -3,7 +3,6 @@ package com.oprica.tmsapi.repository;
 import com.oprica.tmsapi.exception.InvalidTransactionCsvException;
 import com.oprica.tmsapi.exception.TransactionRepositoryException;
 import com.oprica.tmsapi.model.Transaction;
-import com.oprica.tmsapi.model.TransactionStatus;
 import org.apache.commons.csv.CSVException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -21,12 +20,26 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Stream;
 
+import static com.oprica.tmsapi.model.TransactionStatus.PENDING;
+import static com.oprica.tmsapi.model.TransactionStatus.SETTLED;
+import static com.oprica.tmsapi.model.TransactionStatus.FAILED;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class CsvTransactionRepositoryTest {
 
     private static final String HEADER = "Transaction Date,Account Number,Account Holder Name,Amount,Status";
+
+    private static final Transaction TRANSACTION_TO_SAVE =
+            new Transaction(
+                    LocalDate.of(2026, 12, 7),
+                    "1234-5678-9101",
+                    "Test Holder",
+                    new BigDecimal("1000.0"),
+                    PENDING
+            );
+
+    private static final String TRANSACTION_ROW = "2026-12-07,1234-5678-9101,Test Holder,1000.0,Pending";
 
     @TempDir
     Path tempDir;
@@ -49,21 +62,21 @@ class CsvTransactionRepositoryTest {
                                 "7289-3445-1121",
                                 "Maria Johnson",
                                 new BigDecimal("150.00"),
-                                TransactionStatus.SETTLED
+                                SETTLED
                         ),
                         new Transaction(
                                 LocalDate.of(2025, 3, 2),
                                 "1122-3456-7890",
                                 "John Smith",
                                 new BigDecimal("75.50"),
-                                TransactionStatus.PENDING
+                                PENDING
                         ),
                         new Transaction(
                                 LocalDate.of(2025, 3, 4),
                                 "8899-0011-2233",
                                 "Sarah Williams",
                                 new BigDecimal("310.75"),
-                                TransactionStatus.FAILED
+                                FAILED
                         )
                 );
     }
@@ -100,7 +113,7 @@ class CsvTransactionRepositoryTest {
                                 "7289-3445-1121",
                                 "Johnson, Maria",
                                 new BigDecimal("150.00"),
-                                TransactionStatus.SETTLED
+                                SETTLED
                         )
                 );
     }
@@ -200,13 +213,209 @@ class CsvTransactionRepositoryTest {
                 + "2025-03-01,7289-3445-1121,"
                 + "\"Maria Johnson,150.00,Settled";
 
-        TransactionRepository repository =
-                repositoryWithCsv(malformedCsv);
+        TransactionRepository repository = repositoryWithCsv(malformedCsv);
 
         assertThatThrownBy(repository::findAll)
                 .isInstanceOf(InvalidTransactionCsvException.class)
                 .hasMessageContaining("Malformed transaction CSV")
                 .hasCauseInstanceOf(CSVException.class);
+    }
+
+    @Test
+    void save_whenTransactionIsValid_csvHasNewRow() throws IOException {
+        Transaction transaction = new Transaction(
+                LocalDate.of(2026, 12, 7),
+                "1234-5678-9101",
+                "Test Holder",
+                new BigDecimal("1000.0"),
+                PENDING
+        );
+
+        TransactionRepository repository = repositoryWithCsv(HEADER);
+
+        repository.save(transaction);
+
+        assertThat(repository.findAll())
+                .containsExactly(transaction);
+    }
+
+    @Test
+    void save_whenFileDoesNotExist_createsFileAndReturnsProvidedTransaction() throws IOException {
+        Path csvPath = tempDir.resolve("transactions.csv");
+        TransactionRepository repository = new CsvTransactionRepository(csvPath);
+
+        Transaction saved = repository.save(TRANSACTION_TO_SAVE);
+
+        assertThat(saved).isSameAs(TRANSACTION_TO_SAVE);
+
+        assertThat(Files.readAllLines(csvPath, StandardCharsets.UTF_8))
+                .containsExactly(
+                        HEADER,
+                        TRANSACTION_ROW
+                );
+
+        assertThat(repository.findAll())
+                .containsExactly(TRANSACTION_TO_SAVE);
+    }
+
+    @Test
+    void save_whenFileIsEmpty_writesHeaderAndTransaction() throws IOException {
+        TransactionRepository repository = repositoryWithCsv("");
+
+        repository.save(TRANSACTION_TO_SAVE);
+
+        assertThat(repository.findAll())
+                .containsExactly(TRANSACTION_TO_SAVE);
+
+        assertThat(Files.readAllLines(
+                tempDir.resolve("transactions.csv"),
+                StandardCharsets.UTF_8
+        )).containsExactly(
+                HEADER,
+                TRANSACTION_ROW)
+        ;
+    }
+
+    @Test
+    void save_whenFileContainsOnlyHeader_appendsTransaction() throws IOException {
+        TransactionRepository repository = repositoryWithCsv(HEADER + "\n");
+
+        repository.save(TRANSACTION_TO_SAVE);
+
+        assertThat(repository.findAll())
+                .containsExactly(TRANSACTION_TO_SAVE);
+    }
+
+    @Test
+    void save_whenFileDoesNotEndWithLineBreak_startsTransactionOnNewRecord() throws IOException {
+        TransactionRepository repository = repositoryWithCsv(HEADER);
+
+        repository.save(TRANSACTION_TO_SAVE);
+
+        assertThat(Files.readAllLines(
+                tempDir.resolve("transactions.csv"),
+                StandardCharsets.UTF_8
+        )).containsExactly(
+                HEADER,
+                TRANSACTION_ROW
+        );
+    }
+
+    @Test
+    void save_whenFileContainsTransactions_appendsWithoutOverwritingExistingRows() throws IOException {
+        String existingCsv = """
+                Transaction Date,Account Number,Account Holder Name,Amount,Status
+                2025-03-01,7289-3445-1121,Maria Johnson,150.00,Settled
+                """;
+
+        TransactionRepository repository = repositoryWithCsv(existingCsv);
+
+        repository.save(TRANSACTION_TO_SAVE);
+
+        assertThat(repository.findAll())
+                .containsExactly(
+                        new Transaction(
+                                LocalDate.of(2025, 3, 1),
+                                "7289-3445-1121",
+                                "Maria Johnson",
+                                new BigDecimal("150.00"),
+                                SETTLED
+                        ),
+                        TRANSACTION_TO_SAVE
+                );
+
+        assertThat(Files.readAllLines(
+                tempDir.resolve("transactions.csv"),
+                StandardCharsets.UTF_8
+        )).containsExactly(
+                HEADER,
+                "2025-03-01,7289-3445-1121,Maria Johnson,150.00,Settled",
+                TRANSACTION_ROW
+        );
+    }
+
+    @Test
+    void save_whenCalledMultipleTimes_writesHeaderOnlyOnce() throws IOException {
+        Path csvPath = tempDir.resolve("transactions.csv");
+        TransactionRepository repository = new CsvTransactionRepository(csvPath);
+
+        Transaction secondTransaction = new Transaction(
+                LocalDate.of(2026, 12, 8),
+                "2222-3333-4444",
+                "Second Holder",
+                new BigDecimal("25.50"),
+                SETTLED
+        );
+
+        repository.save(TRANSACTION_TO_SAVE);
+        repository.save(secondTransaction);
+
+        assertThat(repository.findAll())
+                .containsExactly(
+                        TRANSACTION_TO_SAVE,
+                        secondTransaction
+                );
+
+        assertThat(Files.readAllLines(csvPath, StandardCharsets.UTF_8))
+                .containsExactly(
+                        HEADER,
+                        TRANSACTION_ROW,
+                        "2026-12-08,2222-3333-4444,Second Holder,25.50,Settled"
+                );
+    }
+
+    @Test
+    void save_whenFieldContainsComma_quotesFieldAndPreservesValue() throws IOException {
+        Transaction transaction = new Transaction(
+                LocalDate.of(2026, 12, 7),
+                "1234-5678-9101",
+                "Holder, Test",
+                new BigDecimal("1000.0"),
+                PENDING
+        );
+
+        TransactionRepository repository = repositoryWithCsv(HEADER + "\n");
+
+        repository.save(transaction);
+
+        assertThat(repository.findAll())
+                .containsExactly(transaction);
+
+        assertThat(Files.readAllLines(
+                tempDir.resolve("transactions.csv"),
+                StandardCharsets.UTF_8
+        )).containsExactly(
+                HEADER,
+                "2026-12-07,1234-5678-9101,\"Holder, Test\",1000.0,Pending"
+        );
+    }
+
+    @Test
+    void save_whenFileCannotBeCreated_throwsTransactionRepositoryException() {
+        Path csvPath = tempDir
+                .resolve("missing-directory")
+                .resolve("transactions.csv");
+
+        TransactionRepository repository =
+                new CsvTransactionRepository(csvPath);
+
+        assertThatThrownBy(
+                () -> repository.save(TRANSACTION_TO_SAVE)
+        )
+                .isInstanceOf(TransactionRepositoryException.class)
+                .hasMessageContaining(
+                        "Failed to save transaction to " + csvPath
+                )
+                .hasCauseInstanceOf(NoSuchFileException.class);
+    }
+
+    @Test
+    void save_whenTransactionIsNull_throwsNullPointerException() throws IOException {
+        TransactionRepository repository = repositoryWithCsv(HEADER + "\n");
+
+        assertThatThrownBy(() -> repository.save(null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("transaction");
     }
 
     private static Stream<Arguments> invalidHeaders() {
