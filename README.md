@@ -26,7 +26,9 @@ A full-stack application for viewing and adding transactions stored in a CSV fil
 * Add transactions through a modal form
 * Randomly assign `Pending`, `Settled`, or `Failed`
 * Display status-specific colors
-* Validate required fields and positive amounts
+* Validate required fields, transaction dates, and amounts
+* Prevent future transaction dates
+* Allow a maximum of two decimal places for amounts
 * Handle loading, empty, error, and retry states
 * Validate the CSV during backend startup
 
@@ -54,55 +56,110 @@ git --version
 Clone the repository:
 
 ```bash
-git clone git@github.com:oprica9/transaction-management-system.git
+git clone https://github.com/oprica9/transaction-management-system.git
 cd transaction-management-system
 ```
 
-Install frontend dependencies:
+Install the frontend dependencies:
 
 ```bash
-npm --prefix tms-ui install
+npm --prefix tms-ui ci
 ```
 
 Backend dependencies are downloaded automatically when the backend starts.
 
 ## Configuration
 
-The application includes local defaults, so no configuration files need to be changed.
+The application includes default settings, so no configuration files need to be changed before running it.
 
-| Setting                          | Environment variable  | Default                             |
-| -------------------------------- | --------------------- | ----------------------------------- |
-| CSV file                         | `TMS_CSV_PATH`        | `{user.home}/tms/transactions.csv}` |
-| Allowed frontend origin          | `TMS_ALLOWED_ORIGINS` | `http://localhost:5173`             |
-| Backend URL used by the frontend | `VITE_API_BASE_URL`   | `http://localhost:8080`             |
+| Setting                          | Environment variable       | Default                             |
+| -------------------------------- | -------------------------- | ----------------------------------- |
+| CSV file                         | `TMS_CSV_PATH`             | `${user.home}/tms/transactions.csv` |
+| Allowed frontend origin          | `TMS_CORS_ALLOWED_ORIGINS` | `http://localhost:5173`             |
+| Backend URL used by the frontend | `VITE_API_BASE_URL`        | `http://localhost:8080`             |
 
-The sample data is available in [`data/transactions.csv`](data/transactions.csv).
+### Default CSV location
+
+When `TMS_CSV_PATH` is not set, the backend stores transactions in the current user's home directory.
+
+Linux and macOS:
+
+```text
+~/tms/transactions.csv
+```
+
+Windows:
+
+```text
+%USERPROFILE%\tms\transactions.csv
+```
 
 The backend will:
 
 * create missing parent directories;
-* create the CSV when it does not exist;
+* create the CSV file when it does not exist;
 * add the required header when the file is empty;
 * reject an existing invalid CSV without changing it.
 
-Because the application is run from the repository root, the default CSV path points to:
+### Run with the sample CSV
 
-```text
-transaction-management-system/data/transactions.csv
+A sample CSV is included at [`data/transactions.csv`](data/transactions.csv).
+
+Run the following commands from the repository root.
+
+Linux or macOS:
+
+```bash
+TMS_CSV_PATH="$PWD/data/transactions.csv" \
+./tms-api/mvnw -f tms-api/pom.xml spring-boot:run
+```
+
+Windows PowerShell:
+
+```powershell
+$env:TMS_CSV_PATH = Join-Path $PWD "data\transactions.csv"
+tms-api\mvnw.cmd -f tms-api\pom.xml spring-boot:run
+```
+
+Windows Command Prompt:
+
+```cmd
+set "TMS_CSV_PATH=%CD%\data\transactions.csv"
+tms-api\mvnw.cmd -f tms-api\pom.xml spring-boot:run
 ```
 
 ### Override backend settings
 
+Linux or macOS:
+
 ```bash
 TMS_CSV_PATH=/tmp/transactions.csv \
-TMS_ALLOWED_ORIGINS=http://localhost:5173 \
+TMS_CORS_ALLOWED_ORIGINS=http://localhost:5173 \
 ./tms-api/mvnw -f tms-api/pom.xml spring-boot:run
+```
+
+Windows PowerShell:
+
+```powershell
+$env:TMS_CSV_PATH = "C:\temp\transactions.csv"
+$env:TMS_CORS_ALLOWED_ORIGINS = "http://localhost:5173"
+
+tms-api\mvnw.cmd -f tms-api\pom.xml spring-boot:run
 ```
 
 ### Override the frontend API URL
 
+Linux or macOS:
+
 ```bash
 VITE_API_BASE_URL=http://localhost:8080 \
+npm --prefix tms-ui run dev
+```
+
+Windows PowerShell:
+
+```powershell
+$env:VITE_API_BASE_URL = "http://localhost:8080"
 npm --prefix tms-ui run dev
 ```
 
@@ -114,11 +171,13 @@ Run the backend and frontend in separate terminals from the repository root.
 
 ### Backend
 
+Linux or macOS:
+
 ```bash
 ./tms-api/mvnw -f tms-api/pom.xml spring-boot:run
 ```
 
-On Windows:
+Windows:
 
 ```powershell
 tms-api\mvnw.cmd -f tms-api\pom.xml spring-boot:run
@@ -131,6 +190,8 @@ http://localhost:8080
 ```
 
 ### Frontend
+
+The command is the same on all supported operating systems:
 
 ```bash
 npm --prefix tms-ui run dev
@@ -156,6 +217,8 @@ http://localhost:8080
 GET /transactions
 ```
 
+Example:
+
 ```bash
 curl http://localhost:8080/transactions
 ```
@@ -174,7 +237,13 @@ Example response:
 ]
 ```
 
-Returns `200 OK`. When no transactions exist, it returns `[]`.
+Returns `200 OK`.
+
+When no transactions exist, the endpoint returns:
+
+```json
+[]
+```
 
 ### Add a transaction
 
@@ -183,9 +252,11 @@ POST /transactions
 Content-Type: application/json
 ```
 
+Example:
+
 ```bash
 curl --json '{
-  "transactionDate": "2026-12-07",
+  "transactionDate": "2026-07-07",
   "accountNumber": "ACCOUNT-123",
   "accountHolderName": "Test Holder",
   "amount": 1000.00
@@ -196,7 +267,7 @@ Example response:
 
 ```json
 {
-  "transactionDate": "2026-12-07",
+  "transactionDate": "2026-07-07",
   "accountNumber": "ACCOUNT-123",
   "accountHolderName": "Test Holder",
   "amount": 1000.00,
@@ -204,20 +275,24 @@ Example response:
 }
 ```
 
-Returns `201 Created`. The backend assigns the status randomly.
+Returns `201 Created`.
+
+The backend assigns the status randomly.
 
 ### Request fields
 
-| Field               | Rule                           |
-| ------------------- | ------------------------------ |
-| `transactionDate`   | Required, format `YYYY-MM-DD`  |
-| `accountNumber`     | Required and nonblank          |
-| `accountHolderName` | Required and nonblank          |
-| `amount`            | Required and greater than zero |
+| Field               | Rule                                                    |
+| ------------------- | ------------------------------------------------------- |
+| `transactionDate`   | Required, format `YYYY-MM-DD`, cannot be in the future  |
+| `accountNumber`     | Required and nonblank                                   |
+| `accountHolderName` | Required and nonblank                                   |
+| `amount`            | Required, greater than zero, maximum two decimal places |
 
 ### Errors
 
 The backend returns Spring `ProblemDetail` responses.
+
+Example:
 
 ```json
 {
@@ -232,6 +307,8 @@ The backend returns Spring `ProblemDetail` responses.
   }
 }
 ```
+
+Main error codes:
 
 | Code                          | Meaning                      |
 | ----------------------------- | ---------------------------- |
@@ -251,49 +328,66 @@ Transaction Date,Account Number,Account Holder Name,Amount,Status
 
 Rules:
 
-* date uses `YYYY-MM-DD`;
-* account number and holder name must not be blank;
-* amount must be greater than zero;
-* status must be `Pending`, `Settled`, or `Failed`.
+* the date must use `YYYY-MM-DD` and cannot be in the future;
+* the account number must not be blank;
+* the account holder name must not be blank;
+* the amount must be greater than zero and have at most two decimal places;
+* the status must be `Pending`, `Settled`, or `Failed`.
 
-New transactions are appended to the file. Fields containing commas are quoted automatically.
+New transactions are appended to the end of the file.
+
+Fields containing commas are quoted automatically:
 
 ```csv
-2026-12-07,1234-5678-9101,"Holder, Test",1000.00,Pending
+2026-07-07,1234-5678-9101,"Holder, Test",1000.00,Pending
 ```
 
 ## Testing
 
-### Backend
+### Backend tests
+
+Linux or macOS:
 
 ```bash
 ./tms-api/mvnw -f tms-api/pom.xml test
 ```
 
-On Windows:
+Windows:
 
 ```powershell
 tms-api\mvnw.cmd -f tms-api\pom.xml test
 ```
 
-The tests cover CSV handling, validation, status assignment, service behavior, controller responses, and API errors.
+The tests cover:
 
-### Frontend
+* domain validation;
+* CSV initialization, parsing, and writing;
+* invalid CSV handling;
+* transaction status assignment;
+* service behavior;
+* controller responses;
+* API error responses.
+
+### Frontend build check
 
 ```bash
 npm --prefix tms-ui run build
 ```
 
-This checks TypeScript and creates a production build.
+This checks the TypeScript code and creates a production build.
 
 ### Manual check
 
-1. Start both applications.
-2. Confirm that the table loads.
-3. Check form validation.
-4. Add a valid transaction.
-5. Refresh and confirm that it is still present.
-6. Stop the backend and check the frontend error and retry state.
+1. Start the backend and frontend.
+2. Confirm that the transaction table loads.
+3. Open the Add Transaction modal.
+4. Check the required-field validation.
+5. Confirm that future dates are rejected.
+6. Confirm that amounts with more than two decimal places are rejected.
+7. Add a valid transaction.
+8. Confirm that it appears in the table.
+9. Refresh the page and confirm that the transaction remains stored.
+10. Stop the backend and check the frontend error and retry state.
 
 ## Design
 
@@ -305,11 +399,17 @@ Controller → Service → Repository → CSV
 
 * The controller handles HTTP requests.
 * The service creates transactions and assigns statuses.
-* The domain model protects required rules.
+* The domain model protects the transaction rules.
 * The repository reads and writes the CSV.
-* The exception handler creates safe API errors.
+* The exception handler creates safe API error responses.
 
-The repository is thread-safe inside one running backend instance.
+The CSV repository uses a read-write lock and is thread-safe inside one running backend instance.
+
+The lock does not coordinate with:
+
+* another backend instance;
+* another application;
+* a user manually editing the file.
 
 ### Frontend
 
@@ -318,11 +418,11 @@ TransactionsPage → useTransactions → transactionApi
 ```
 
 * `TransactionsPage` controls what is displayed.
-* `useTransactions` manages data and request state.
+* `useTransactions` manages transaction data and request state.
 * `transactionApi` handles HTTP communication.
-* Smaller components handle the table, form, modal, badge, and errors.
+* Smaller components handle the table, form, modal, status badge, and errors.
 
-Local React state is enough because the application contains one small feature.
+Local React state is sufficient because the application contains one small feature.
 
 ## Limitations
 
@@ -336,4 +436,3 @@ Local React state is enough because the application contains one small feature.
 AI tools were used to review the code, suggest edge cases and refactoring ideas, and improve the documentation.
 
 All suggestions were reviewed before use. Backend behavior was checked with automated tests, and the complete application flow was checked against the task requirements.
-
