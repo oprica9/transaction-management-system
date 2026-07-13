@@ -16,7 +16,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class TransactionTest {
 
     private static final LocalDate VALID_DATE =
-            LocalDate.of(2026, 12, 7);
+            LocalDate.of(2026, 7, 7);
 
     private static final String VALID_ACCOUNT_NUMBER =
             "1234-5678-9101";
@@ -86,6 +86,34 @@ class TransactionTest {
 
         assertThat(transaction.accountNumber())
                 .isEqualTo(accountNumber.strip());
+    }
+
+    @Test
+    void shouldAllowTransactionDateToday() {
+        Transaction transaction = new Transaction(
+                LocalDate.now(),
+                "1234-5678-9012",
+                "Maria Johnson",
+                new BigDecimal("100.00"),
+                TransactionStatus.PENDING
+        );
+
+        assertThat(transaction.transactionDate())
+                .isEqualTo(LocalDate.now());
+    }
+
+    @Test
+    void shouldAllowAmountWithTwoDecimalPlaces() {
+        Transaction transaction = new Transaction(
+                LocalDate.now(),
+                "1234-5678-9012",
+                "Maria Johnson",
+                new BigDecimal("100.12"),
+                TransactionStatus.PENDING
+        );
+
+        assertThat(transaction.amount())
+                .isEqualByComparingTo("100.12");
     }
 
     @ParameterizedTest(name = "{0}")
@@ -224,7 +252,7 @@ class TransactionTest {
                         VALID_ACCOUNT_HOLDER_NAME,
                         BigDecimal.ZERO,
                         PENDING,
-                        "amount must be greater than zero"
+                        "Amount must be greater than zero."
                 ),
                 Arguments.of(
                         "amount is negative",
@@ -233,7 +261,7 @@ class TransactionTest {
                         VALID_ACCOUNT_HOLDER_NAME,
                         new BigDecimal("-0.01"),
                         PENDING,
-                        "amount must be greater than zero"
+                        "Amount must be greater than zero."
                 ),
                 Arguments.of(
                         "status is null",
@@ -243,6 +271,24 @@ class TransactionTest {
                         VALID_AMOUNT,
                         null,
                         "status must not be null"
+                ),
+                Arguments.of(
+                        "transaction date is in the future",
+                        LocalDate.of(2026, 12, 31),
+                        VALID_ACCOUNT_NUMBER,
+                        VALID_ACCOUNT_HOLDER_NAME,
+                        VALID_AMOUNT,
+                        PENDING,
+                        "Transaction date must not be in the future."
+                ),
+                Arguments.of(
+                        "transaction amount has more than 2 decimal places",
+                        VALID_DATE,
+                        VALID_ACCOUNT_NUMBER,
+                        VALID_ACCOUNT_HOLDER_NAME,
+                        new BigDecimal("123.123"),
+                        PENDING,
+                        "Amount must have at most two decimal places."
                 )
         );
     }

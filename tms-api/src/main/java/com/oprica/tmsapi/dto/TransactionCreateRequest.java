@@ -1,14 +1,13 @@
 package com.oprica.tmsapi.dto;
 
-import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
 public record TransactionCreateRequest(
         @NotNull
+        @PastOrPresent
         LocalDate transactionDate,
 
         @NotBlank
@@ -23,6 +22,7 @@ public record TransactionCreateRequest(
                 inclusive = false,
                 message = "Amount must be greater than zero"
         )
+        @Digits(integer = 15, fraction = 2)
         BigDecimal amount
 ) {
 

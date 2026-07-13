@@ -56,7 +56,7 @@ class TransactionServiceTest {
     void createTransaction_assignsResolvedStatusAndSavesTransaction() {
         TransactionCreateRequest request =
                 new TransactionCreateRequest(
-                        LocalDate.of(2026, 12, 7),
+                        LocalDate.of(2026, 7, 7),
                         "1234-5678-9101",
                         "Test Holder",
                         new BigDecimal("1000.00")

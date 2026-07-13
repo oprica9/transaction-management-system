@@ -45,6 +45,8 @@ export function TransactionForm({
     const [submitError, setSubmitError] =
         useState<string | null>(null);
 
+    const today = toLocalDateString(new Date());
+
     function updateField<K extends keyof FormState>(
         field: K,
         value: FormState[K],
@@ -67,12 +69,21 @@ export function TransactionForm({
         setSubmitError(null);
     }
 
+    function updateAmount(value: string) {
+        const hasValidFormat =
+            /^\d*(?:\.\d{0,2})?$/.test(value);
+
+        if (hasValidFormat) {
+            updateField('amount', value);
+        }
+    }
+
     async function handleSubmit(
         event: FormEvent<HTMLFormElement>,
     ) {
         event.preventDefault();
 
-        const validationErrors = validate(form);
+        const validationErrors = validate(form, today);
 
         setErrors(validationErrors);
 
@@ -119,6 +130,7 @@ export function TransactionForm({
                     id="transactionDate"
                     name="transactionDate"
                     type="date"
+                    max={today}
                     value={form.transactionDate}
                     disabled={isSubmitting}
                     data-autofocus
@@ -244,14 +256,9 @@ export function TransactionForm({
                     value={form.amount}
                     disabled={isSubmitting}
                     onChange={(event) =>
-                        updateField(
-                            'amount',
-                            event.target.value,
-                        )
+                        updateAmount(event.target.value)
                     }
-                    aria-invalid={
-                        Boolean(errors.amount)
-                    }
+                    aria-invalid={Boolean(errors.amount)}
                     aria-describedby={
                         errors.amount
                             ? 'amount-error'
@@ -291,12 +298,18 @@ export function TransactionForm({
     );
 }
 
-function validate(form: FormState): FieldErrors {
+function validate(
+    form: FormState,
+    today: string,
+): FieldErrors {
     const errors: FieldErrors = {};
 
     if (!form.transactionDate) {
         errors.transactionDate =
             'Transaction date is required.';
+    } else if (form.transactionDate > today) {
+        errors.transactionDate =
+            'Transaction date cannot be in the future.';
     }
 
     if (!form.accountNumber.trim()) {
@@ -314,6 +327,9 @@ function validate(form: FormState): FieldErrors {
 
     if (!amountText) {
         errors.amount = 'Amount is required.';
+    } else if (!/^\d+(?:\.\d{1,2})?$/.test(amountText)) {
+        errors.amount =
+            'Amount must have at most two decimal places.';
     } else if (
         !Number.isFinite(amount)
         || amount <= 0
@@ -323,4 +339,16 @@ function validate(form: FormState): FieldErrors {
     }
 
     return errors;
+}
+
+function toLocalDateString(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(
+        date.getMonth() + 1,
+    ).padStart(2, '0');
+    const day = String(
+        date.getDate(),
+    ).padStart(2, '0');
+
+    return `${year}-${month}-${day}`;
 }

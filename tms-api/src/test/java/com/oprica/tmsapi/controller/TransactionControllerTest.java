@@ -92,7 +92,7 @@ class TransactionControllerTest {
     void createTransaction_whenRequestIsValid_returnsCreatedTransaction() throws Exception {
         TransactionCreateRequest request =
                 new TransactionCreateRequest(
-                        LocalDate.of(2026, 12, 7),
+                        LocalDate.of(2026, 7, 7),
                         "ACCOUNT-123",
                         "Test Holder",
                         new BigDecimal("1000.00")
@@ -115,7 +115,7 @@ class TransactionControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.transactionDate")
-                        .value("2026-12-07"))
+                        .value("2026-07-07"))
                 .andExpect(jsonPath("$.accountNumber")
                         .value("ACCOUNT-123"))
                 .andExpect(jsonPath("$.accountHolderName")
@@ -132,7 +132,7 @@ class TransactionControllerTest {
     void createTransaction_whenAccountNumberIsBlank_returnsValidationProblem() throws Exception {
         String request = """
                 {
-                  "transactionDate": "2026-12-07",
+                  "transactionDate": "2026-07-07",
                   "accountNumber": "   ",
                   "accountHolderName": "Test Holder",
                   "amount": 1000.00
@@ -160,7 +160,7 @@ class TransactionControllerTest {
     void createTransaction_whenAccountHolderNameIsBlank_returnsValidationProblem() throws Exception {
         String request = """
                 {
-                  "transactionDate": "2026-12-07",
+                  "transactionDate": "2026-07-07",
                   "accountNumber": "ACCOUNT-123",
                   "accountHolderName": "   ",
                   "amount": 1000.00
@@ -188,7 +188,7 @@ class TransactionControllerTest {
     ) throws Exception {
         String request = """
                 {
-                  "transactionDate": "2026-12-07",
+                  "transactionDate": "2026-07-07",
                   "accountNumber": "ACCOUNT-123",
                   "accountHolderName": "Test Holder",
                   "amount": %s
@@ -239,7 +239,7 @@ class TransactionControllerTest {
     void createTransaction_whenDateHasInvalidFormat_returnsMalformedRequestProblem() throws Exception {
         String request = """
                 {
-                  "transactionDate": "07-12-2026",
+                  "transactionDate": "07-07-2026",
                   "accountNumber": "ACCOUNT-123",
                   "accountHolderName": "Test Holder",
                   "amount": 1000.00
@@ -263,7 +263,7 @@ class TransactionControllerTest {
     void createTransaction_whenBodyIsMalformedJson_returnsMalformedRequestProblem() throws Exception {
         String malformedRequest = """
                 {
-                  "transactionDate": "2026-12-07",
+                  "transactionDate": "2026-07-07",
                   "accountNumber": "ACCOUNT-123"
                 """;
 
@@ -337,5 +337,52 @@ class TransactionControllerTest {
                 .andExpect(content().string(not(containsString("Sensitive implementation detail"))));
 
         verify(transactionService).getAllTransactions();
+    }
+
+    @Test
+    void shouldRejectTransactionDateInTheFuture() throws Exception {
+        String requestBody = """
+                {
+                  "transactionDate": "%s",
+                  "accountNumber": "1234-5678-9012",
+                  "accountHolderName": "Maria Johnson",
+                  "amount": 100.00
+                }
+                """.formatted(LocalDate.now().plusDays(1));
+
+        mockMvc.perform(post("/transactions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code")
+                        .value("VALIDATION_FAILED"))
+                .andExpect(jsonPath(
+                        "$.errors.transactionDate"
+                ).exists());
+
+        verifyNoInteractions(transactionService);
+    }
+
+    @Test
+    void shouldRejectAmountWithMoreThanTwoDecimalPlaces() throws Exception {
+        String requestBody = """
+                {
+                  "transactionDate": "%s",
+                  "accountNumber": "1234-5678-9012",
+                  "accountHolderName": "Maria Johnson",
+                  "amount": 100.123
+                }
+                """.formatted(LocalDate.now());
+
+        mockMvc.perform(post("/transactions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code")
+                        .value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.errors.amount")
+                        .exists());
+
+        verifyNoInteractions(transactionService);
     }
 }

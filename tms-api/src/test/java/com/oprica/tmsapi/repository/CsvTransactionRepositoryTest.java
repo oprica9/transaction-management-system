@@ -32,14 +32,14 @@ class CsvTransactionRepositoryTest {
 
     private static final Transaction TRANSACTION_TO_SAVE =
             new Transaction(
-                    LocalDate.of(2026, 12, 7),
+                    LocalDate.of(2026, 7, 7),
                     "1234-5678-9101",
                     "Test Holder",
                     new BigDecimal("1000.0"),
                     PENDING
             );
 
-    private static final String TRANSACTION_ROW = "2026-12-07,1234-5678-9101,Test Holder,1000.0,Pending";
+    private static final String TRANSACTION_ROW = "2026-07-07,1234-5678-9101,Test Holder,1000.0,Pending";
 
     @TempDir
     Path tempDir;
@@ -350,7 +350,7 @@ class CsvTransactionRepositoryTest {
         repository.initialize();
 
         Transaction secondTransaction = new Transaction(
-                LocalDate.of(2026, 12, 8),
+                LocalDate.of(2026, 7, 8),
                 "2222-3333-4444",
                 "Second Holder",
                 new BigDecimal("25.50"),
@@ -370,14 +370,14 @@ class CsvTransactionRepositoryTest {
                 .containsExactly(
                         HEADER,
                         TRANSACTION_ROW,
-                        "2026-12-08,2222-3333-4444,Second Holder,25.50,Settled"
+                        "2026-07-08,2222-3333-4444,Second Holder,25.50,Settled"
                 );
     }
 
     @Test
     void save_whenFieldContainsComma_quotesFieldAndPreservesValue() throws IOException {
         Transaction transaction = new Transaction(
-                LocalDate.of(2026, 12, 7),
+                LocalDate.of(2026, 7, 7),
                 "1234-5678-9101",
                 "Holder, Test",
                 new BigDecimal("1000.0"),
@@ -396,7 +396,7 @@ class CsvTransactionRepositoryTest {
                 StandardCharsets.UTF_8
         )).containsExactly(
                 HEADER,
-                "2026-12-07,1234-5678-9101,\"Holder, Test\",1000.0,Pending"
+                "2026-07-07,1234-5678-9101,\"Holder, Test\",1000.0,Pending"
         );
     }
 
@@ -427,6 +427,30 @@ class CsvTransactionRepositoryTest {
         assertThatThrownBy(() -> repository.save(null))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("transaction");
+    }
+
+    @Test
+    void findAll_whenTransactionDateIsInTheFuture_throwsInvalidTransactionCsvException() throws IOException {
+        String row = "%s,1234-5678-9012,Maria Johnson,100.00,Pending"
+                .formatted(LocalDate.now().plusDays(1));
+
+        TransactionRepository repository = repositoryWithCsv(csvWithRow(row));
+
+        assertThatThrownBy(repository::findAll)
+                .isInstanceOf(InvalidTransactionCsvException.class)
+                .hasCauseInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void findAll_whenAmountHasMoreThanTwoDecimalPlaces_throwsInvalidTransactionCsvException() throws IOException {
+        String row = "%s,1234-5678-9012,Maria Johnson,100.123,Pending"
+                .formatted(LocalDate.now());
+
+        TransactionRepository repository = repositoryWithCsv(csvWithRow(row));
+
+        assertThatThrownBy(repository::findAll)
+                .isInstanceOf(InvalidTransactionCsvException.class)
+                .hasCauseInstanceOf(IllegalArgumentException.class);
     }
 
     private static Stream<Arguments> invalidExistingCsvFiles() {

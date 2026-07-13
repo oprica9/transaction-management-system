@@ -25,8 +25,16 @@ public record Transaction(
         accountNumber = normalizeRequired(accountNumber, "accountNumber");
         accountHolderName = normalizeRequired(accountHolderName, "accountHolderName");
 
+        if (transactionDate.isAfter(LocalDate.now())) {
+            throw new IllegalArgumentException("Transaction date must not be in the future.");
+        }
+
         if (amount.signum() <= 0) {
-            throw new IllegalArgumentException("amount must be greater than zero");
+            throw new IllegalArgumentException("Amount must be greater than zero.");
+        }
+
+        if (amount.scale() > 2) {
+            throw new IllegalArgumentException("Amount must have at most two decimal places.");
         }
     }
 
