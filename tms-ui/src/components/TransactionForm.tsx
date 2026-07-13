@@ -31,6 +31,8 @@ const EMPTY_FORM: FormState = {
     amount: '',
 };
 
+const MAX_AMOUNT = '999999999999999.99';
+
 export function TransactionForm({
     isSubmitting,
     onSubmit,
@@ -70,10 +72,7 @@ export function TransactionForm({
     }
 
     function updateAmount(value: string) {
-        const hasValidFormat =
-            /^\d*(?:\.\d{0,2})?$/.test(value);
-
-        if (hasValidFormat) {
+        if (/^\d{0,15}(?:\.\d{0,2})?$/.test(value)) {
             updateField('amount', value);
         }
     }
@@ -251,6 +250,7 @@ export function TransactionForm({
                     type="number"
                     step="0.01"
                     min="0.01"
+                    max={MAX_AMOUNT}
                     inputMode="decimal"
                     placeholder="0.00"
                     value={form.amount}
@@ -327,7 +327,9 @@ function validate(
 
     if (!amountText) {
         errors.amount = 'Amount is required.';
-    } else if (!/^\d+(?:\.\d{1,2})?$/.test(amountText)) {
+    } else if (
+        !/^\d+(?:\.\d{1,2})?$/.test(amountText)
+    ) {
         errors.amount =
             'Amount must have at most two decimal places.';
     } else if (
@@ -336,6 +338,9 @@ function validate(
     ) {
         errors.amount =
             'Amount must be greater than zero.';
+    } else if (amount > Number(MAX_AMOUNT)) {
+        errors.amount =
+            'Amount must not exceed 999999999999999.99.';
     }
 
     return errors;
